@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Procedural Skeleton Survival - GOAT Edition</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #030305; cursor: crosshair; user-select: none; }
+        canvas { display: block; }
+        
+        /* UI Layer */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; padding: 20px; display: flex; justify-content: space-between; z-index: 10; }
+        #left-stats { pointer-events: auto; }
+        #wave-display { color: #fff; font-size: 28px; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.5); margin-bottom: 10px; }
+        
+        #hp-container { width: 280px; height: 25px; background: #222; border: 2px solid #555; border-radius: 5px; position: relative; margin-bottom: 15px;}
+        #hp-bar { height: 100%; width: 100%; background: linear-gradient(90deg, #b00, #f22); transition: width 0.1s linear; }
+        #hp-text { position: absolute; top: 0; left: 0; width: 100%; text-align: center; color: white; font-weight: bold; line-height: 21px; text-shadow: 1px 1px 2px black; font-size: 13px; }
+
+        .controls-hint { color: #aaa; font-size: 13px; margin-bottom: 4px; text-shadow: 1px 1px 2px black; }
+        
+        #right-skills { pointer-events: auto; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; width: 320px; max-height: 85vh; overflow-y: auto; padding-right: 5px; }
+        #right-skills::-webkit-scrollbar { width: 6px; }
+        #right-skills::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+        
+        .moveset-panel { background: rgba(10, 10, 15, 0.7); border: 2px solid #333; padding: 8px 10px; border-radius: 8px; width: 100%; transition: all 0.2s; opacity: 0.6; cursor: pointer; display: block; }
+        .moveset-panel:hover { opacity: 0.9; border-color: #777; }
+        .moveset-panel.active { border-color: #00ffff; box-shadow: 0 0 15px rgba(0,255,255,0.3); background: rgba(20, 20, 35, 0.95); opacity: 1; transform: scale(1.02); }
+        .moveset-title { color: #fff; font-weight: bold; font-size: 12px; margin-bottom: 4px; border-bottom: 1px solid #444; padding-bottom: 2px; text-align: center; text-transform: uppercase;}
+        
+        .skill-row { display: flex; justify-content: space-between; margin-bottom: 2px; color: #ccc; font-size: 11px;}
+        .skill-name { font-weight: bold; }
+        
+        /* Colors */
+        .c-1 { color: #55aaff; } .c-2 { color: #ff55ff; }
+        .c-3 { color: #ffff55; } .c-4 { color: #ff3333; }
+        .c-5 { color: #ffaa00; } .c-6 { color: #00ffff; }
+        .c-7 { color: #ff6600; } .c-8 { color: #ff0000; }
+        .c-9 { color: #bc13fe; } .c-10 { color: #ff0055; }
+        .c-11 { color: #ffaa33; } .c-12 { color: #aa0000; }
+        .c-13 { color: #00ff66; } .c-14 { color: #00ffaa; }
+        .c-15 { color: #ffffff; } .c-16 { color: #d4aaff; }
+        .c-17 { color: #ff0000; } .c-18 { color: #00ffff; }
+        .c-19 { color: #6600ff; } .c-20 { color: #cc00ff; }
+        .c-21 { color: #ffffaa; } .c-22 { color: #ff3300; }
+        .c-23 { color: #55ff55; } .c-24 { color: #ff0055; }
+        .c-25 { color: #33ff33; } .c-26 { color: #ffaa00; }
+        .c-27 { color: #aaddff; } .c-28 { color: #ffdd00; }
+        .c-29 { color: #00ffff; } .c-30 { color: #aa00ff; }
+
+        .cd-text { color: #44ff44; font-weight: bold; }
+        .cd-text.on-cd { color: #ff4444; }
+
+        /* Start Menu */
+        #start-menu {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(3, 3, 5, 0.92); backdrop-filter: blur(8px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 100; color: #fff;
+        }
+        .menu-card {
+            background: rgba(20, 20, 30, 0.95); border: 2px solid #55aaff;
+            border-radius: 12px; padding: 25px 30px; max-width: 550px; width: 90%;
+            text-align: center; box-shadow: 0 0 30px rgba(85, 170, 255, 0.3);
+        }
+        .menu-card h1 { font-size: 24px; margin-bottom: 15px; color: #fff; text-shadow: 0 0 10px #55aaff; letter-spacing: 1px; }
+        .instructions-box { text-align: left; background: rgba(10, 10, 15, 0.8); border: 1px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; line-height: 1.6; }
+        .instructions-box h3 { color: #ffaa00; margin-bottom: 6px; font-size: 14px; border-bottom: 1px solid #444; padding-bottom: 2px; }
+        .instructions-box p { margin-bottom: 8px; }
+        .start-btn {
+            background: linear-gradient(135deg, #0055ff, #8800ff); color: #fff; font-weight: bold;
+            font-size: 18px; padding: 12px 35px; border: none; border-radius: 25px; cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 150, 255, 0.5); transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .start-btn:hover { transform: scale(1.05); box-shadow: 0 0 25px rgba(0, 150, 255, 0.8); }
+
+        /* Mobile Controls */
+        #mobile-controls {
+            position: absolute; bottom: 25px; left: 20px; right: 20px;
+            display: none; justify-content: space-between; align-items: flex-end;
+            pointer-events: none; z-index: 50;
+        }
+        .joystick-base {
+            width: 120px; height: 120px; background: rgba(255, 255, 255, 0.12);
+            border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 50%;
+            position: relative; pointer-events: auto; touch-action: none;
+        }
+        .joystick-stick {
+            width: 50px; height: 50px; background: rgba(0, 255, 255, 0.6);
+            border-radius: 50%; position: absolute; top: 35px; left: 35px;
+            box-shadow: 0 0 10px #00ffff; pointer-events: none;
+        }
+        .mobile-action-btns { display: flex; gap: 15px; pointer-events: auto; }
+        .m-btn {
+            width: 65px; height: 65px; border-radius: 50%; border: 2px solid #fff;
+            background: rgba(20, 20, 35, 0.85); color: #fff; font-weight: bold; font-size: 20px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.3); touch-action: manipulation;
+        }
+        .m-btn:active { transform: scale(0.9); background: rgba(85, 170, 255, 0.8); }
+
+        #screen-fx { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; background: transparent; transition: background 0.1s; }
+        #domain-fx { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity 0.3s; background: radial-gradient(circle, transparent 20%, rgba(150, 0, 0, 0.6) 100%); }
+
+        #game-over, #victory { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 50px; font-weight: bold; display: none; pointer-events: none; z-index: 20; text-align: center; }
+        #game-over { color: red; text-shadow: 0 0 20px black, 0 0 30px darkred; }
+        #victory { color: #a020ff; text-shadow: 0 0 20px black, 0 0 30px white; }
+    </style>
+</head>
+<body>
+
+    <!-- Start Menu Overlay -->
+    <div id="start-menu">
+        <div class="menu-card">
+            <h1>SKELETON SURVIVAL</h1>
+            <div class="instructions-box">
+                <h3>🎮 PC CONTROLS</h3>
+                <p><strong>Movement:</strong> Use <strong>W, A, S, D</strong> keys to move (stops when released).</p>
+                <p><strong>Aiming:</strong> Aim directed by your <strong>Mouse Cursor</strong>.</p>
+                <p><strong>Skills:</strong> <strong>Left Click</strong> = [L] Move | <strong>Right Click</strong> = [R] Move</p>
+                <p><strong>Switch Moveset:</strong> Press keys <strong>1-0, -, =, [, ], ;</strong> or <strong>Q</strong> to cycle.</p>
+                <br>
+                <h3>📱 MOBILE CONTROLS</h3>
+                <p><strong>Movement:</strong> Use the <strong>Virtual Joystick</strong> on the bottom-left.</p>
+                <p><strong>Aiming:</strong> Aim is locked <strong>75px above creature's head</strong>.</p>
+                <p><strong>Skills:</strong> Tap on-screen <strong>[L]</strong> or <strong>[R]</strong> action buttons.</p>
+                <p><strong>Switch Moveset:</strong> Tap any moveset directly in the right side list.</p>
+            </div>
+            <button class="start-btn" id="start-btn">PLAY GAME</button>
+        </div>
+    </div>
+
+    <!-- Screen FX -->
+    <div id="screen-fx"></div>
+    <div id="domain-fx"></div>
+
+    <!-- Main UI Layer -->
+    <div id="ui-layer">
+        <div id="left-stats">
+            <div id="wave-display">Wave: 1 / 10</div>
+            <div id="hp-container"><div id="hp-bar"></div><div id="hp-text">1000 / 1000</div></div>
+            <div class="controls-hint">PC: WASD Move | Mouse Aim</div>
+            <div class="controls-hint">Mobile: Joystick | Aim 75px Above Head</div>
+        </div>
+        
+        <!-- Vertical Moveset Listing -->
+        <div id="right-skills">
+            <div id="set-1" class="moveset-panel active"><div class="moveset-title">1. The Originals</div><div class="skill-row"><span class="skill-name c-1">[L] Soul Swing</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-2">[R] Hollow Purple</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-2" class="moveset-panel"><div class="moveset-title">2. Anime Legends</div><div class="skill-row"><span class="skill-name c-3">[L] Thunderclap</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-4">[R] Mugetsu</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-3" class="moveset-panel"><div class="moveset-title">3. Son Goku</div><div class="skill-row"><span class="skill-name c-5">[L] Ki Blast</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-6">[R] Kamehameha</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-4" class="moveset-panel"><div class="moveset-title">4. Ryomen Sukuna</div><div class="skill-row"><span class="skill-name c-7">[L] Fuga</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-8">[R] Malevolent Shrine</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-5" class="moveset-panel"><div class="moveset-title">5. Anti-Magic</div><div class="skill-row"><span class="skill-name c-9">[L] Demon Slasher</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-10">[R] Demon Destroyer</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-6" class="moveset-panel"><div class="moveset-title">6. Maki Zenin</div><div class="skill-row"><span class="skill-name c-11">[L] Dragon Bone</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-12">[R] Split Soul Katana</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-7" class="moveset-panel"><div class="moveset-title">7. Ulquiorra Cifer</div><div class="skill-row"><span class="skill-name c-13">[L] Cero Oscuras</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-14">[R] Lanza del Relampago</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-8" class="moveset-panel"><div class="moveset-title">8. Frieren</div><div class="skill-row"><span class="skill-name c-15">[L] Zoltraak</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-16">[R] Vollzanbel</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-9" class="moveset-panel"><div class="moveset-title">9. Ainz Ooal Gown</div><div class="skill-row"><span class="skill-name c-17">[L] Grasp Heart</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-18">[R] Fallen Down</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-10" class="moveset-panel"><div class="moveset-title">10. Shadow (Cid)</div><div class="skill-row"><span class="skill-name c-19">[L] Slime Blade</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-20">[R] I Am Atomic</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-11" class="moveset-panel"><div class="moveset-title">11. Saitama</div><div class="skill-row"><span class="skill-name c-21">[L] Normal Punch</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-22">[R] Serious Punch</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-12" class="moveset-panel"><div class="moveset-title">12. Might Guy</div><div class="skill-row"><span class="skill-name c-23">[L] Hirudora</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-24">[R] Night Guy</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-13" class="moveset-panel"><div class="moveset-title">13. Zoro & Yoriichi</div><div class="skill-row"><span class="skill-name c-25">[L] Purgatory Onigiri</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-26">[R] 13th Form</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-14" class="moveset-panel"><div class="moveset-title">14. Tengen Uzui</div><div class="skill-row"><span class="skill-name c-27">[L] First Fang: Roar</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-28">[R] String Performance</span><span class="cd-text cd-slot-2"></span></div></div>
+            <div id="set-15" class="moveset-panel"><div class="moveset-title">15. Mob psychic</div><div class="skill-row"><span class="skill-name c-29">[L] Psychokinesis</span><span class="cd-text cd-slot-1"></span></div><div class="skill-row"><span class="skill-name c-30">[R] Mob 100%</span><span class="cd-text cd-slot-2"></span></div></div>
+        </div>
+    </div>
+
+    <!-- Mobile Virtual Controls -->
+    <div id="mobile-controls">
+        <div class="joystick-base" id="joystick-base">
+            <div class="joystick-stick" id="joystick-stick"></div>
+        </div>
+        <div class="mobile-action-btns">
+            <div class="m-btn" id="btn-skill-l">L</div>
+            <div class="m-btn" id="btn-skill-r">R</div>
+        </div>
+    </div>
+    
+    <div id="game-over">YOU DIED</div>
+    <div id="victory">BOSS SLAIN. YOU SURVIVED.</div>
+
+    <canvas id="animationCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('animationCanvas');
+        const ctx = canvas.getContext('2d');
+        const screenFx = document.getElementById('screen-fx');
+        const domainFx = document.getElementById('domain-fx');
+        const rightSkills = document.getElementById('right-skills');
+
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        let gameStarted = false;
+        const isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth < 800;
+        if (isMobile) {
+            document.getElementById('mobile-controls').style.display = 'flex';
+        }
+
+        const WORLD_SIZE = 4000;
+        let camera = { x: 0, y: 0 };
+        const mouse = { x: canvas.width / 2, y: canvas.height / 2, worldX: 0, worldY: 0 };
+        
+        let playerMaxHP = 1000, playerHP = 1000;
+        let isDead = false, won = false, wave = 1; const maxWaves = 10;
+        let zombies = [], groundEffects = [], textEffects = [];
+        let activeSet = 1, isUntargetable = false;
+
+        // Key states for WASD Movement
+        const keys = { w: false, a: false, s: false, d: false };
+
+        // Virtual Joystick State
+        let joyVector = { x: 0, y: 0 };
+        let joyActive = false;
+
+        const skillCooldowns = {
+            1: { L: 0.2 * 60, R: 5.0 * 60 }, 2: { L: 0.05 * 60, R: 5.0 * 60 }, 3: { L: 0.5 * 60, R: 6.0 * 60 },
+            4: { L: 3.0 * 60, R: 7.0 * 60 }, 5: { L: 4.0 * 60, R: 10.0 * 60 }, 6: { L: 1.5 * 60, R: 8.0 * 60 },
+            7: { L: 2.0 * 60, R: 10.0 * 60 }, 8: { L: 6.0 * 60, R: 8.0 * 60 }, 9: { L: 1.85 * 60, R: 10.0 * 60 },
+            10: { L: 0.2 * 60, R: 15.0 * 60 }, 11: { L: 0.2 * 60, R: 10.0 * 60 }, 12: { L: 1.75 * 60, R: 10.0 * 60 },
+            13: { L: 0.2 * 60, R: 4.5 * 60 }, 14: { L: 0.5 * 60, R: 6.0 * 60 }, 15: { L: 1.0 * 60, R: 12.0 * 60 }
+        };
+        
+        let cds = {}; for(let i=1; i<=15; i++) cds[i] = {L:0,R:0};
+
+        let isAttacking = false, attackTimer = 0, currentAttackName = "", attackAngleTarget = 0, damageDealt = false, attackData = {}, freezeFrames = 0, impactFrames = 0;
+
+        function updateUI() {
+            document.getElementById('hp-bar').style.width = `${(playerHP / playerMaxHP) * 100}%`;
+            document.getElementById('hp-text').innerText = `${Math.floor(playerHP)} / ${playerMaxHP}`;
+            document.getElementById('wave-display').innerText = `Wave: ${wave} / ${maxWaves}`;
+            const formatCD = (f) => f > 0 ? (f/60).toFixed(1) + 's' : 'Ready';
+            document.querySelector(`#set-${activeSet} .cd-slot-1`).innerText = formatCD(cds[activeSet].L);
+            document.querySelector(`#set-${activeSet} .cd-slot-1`).className = 'cd-text cd-slot-1 ' + (cds[activeSet].L > 0 ? 'on-cd' : '');
+            document.querySelector(`#set-${activeSet} .cd-slot-2`).innerText = formatCD(cds[activeSet].R);
+            document.querySelector(`#set-${activeSet} .cd-slot-2`).className = 'cd-text cd-slot-2 ' + (cds[activeSet].R > 0 ? 'on-cd' : '');
+        }
+
+        window.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
+
+        // Keyboard Movement Controls
+        window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright'].includes(k)) {
+                if (k === 'w' || k === 'arrowup') keys.w = true;
+                if (k === 'a' || k === 'arrowleft') keys.a = true;
+                if (k === 's' || k === 'arrowdown') keys.s = true;
+                if (k === 'd' || k === 'arrowright') keys.d = true;
+            }
+            if (isDead || won || !gameStarted) return;
+            const keyMap = { '1':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '0':10, '-':11, '=':12, '[':13, '{':13, ']':14, '}':14, ';':15, ':':15 };
+            if (keyMap[e.key]) setMoveset(keyMap[e.key]);
+            if (k === 'q') setMoveset(activeSet === 15 ? 1 : activeSet + 1);
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const k = e.key.toLowerCase();
+            if (k === 'w' || k === 'arrowup') keys.w = false;
+            if (k === 'a' || k === 'arrowleft') keys.a = false;
+            if (k === 's' || k === 'arrowdown') keys.s = false;
+            if (k === 'd' || k === 'arrowright') keys.d = false;
+        });
+
+        // Clickable Moveset Listing
+        for(let i=1; i<=15; i++) {
+            const el = document.getElementById(`set-${i}`);
+            if (el) {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    setMoveset(i);
+                });
+            }
+        }
+
+        function setMoveset(id) {
+            activeSet = id;
+            for(let i=1; i<=15; i++) document.getElementById(`set-${i}`).classList.toggle('active', id === i);
+            const activePanel = document.getElementById(`set-${id}`);
+            if(activePanel) { rightSkills.scrollTop = activePanel.offsetTop - rightSkills.offsetTop; }
+            updateUI();
+        }
+
+        const moves = {
+            1: { L: "SoulSwing", R: "HollowPurple" }, 2: { L: "Thunderclap", R: "Mugetsu" },
+            3: { L: "KiBlast", R: "Kamehameha" }, 4: { L: "Fuga", R: "MalevolentShrine" },
+            5: { L: "DemonSlasher", R: "DemonDestroyer" }, 6: { L: "DragonBone", R: "SplitSoulKatana" },
+            7: { L: "CeroOscuras", R: "LanzaDelRelampago" }, 8: { L: "Zoltraak", R: "Vollzanbel" },
+            9: { L: "GraspHeart", R: "FallenDown" }, 10: { L: "SlimeBlade", R: "IAmAtomic" },
+            11: { L: "NormalPunch", R: "SeriousPunch" }, 12: { L: "Hirudora", R: "NightGuy" },
+            13: { L: "PurgatoryOnigiri", R: "ThirteenthForm" }, 14: { L: "FirstFang", R: "StringPerformance" },
+            15: { L: "Psychokinesis", R: "Mob100" }
+        };
+
+        function useSkill(skillType) {
+            if (!gameStarted || isDead || won || isAttacking || freezeFrames > 0) return;
+            const head = segments[0];
+
+            if (isMobile) {
+                mouse.worldX = head.x;
+                mouse.worldY = head.y - 75;
+            } else {
+                mouse.worldX = mouse.x + camera.x;
+                mouse.worldY = mouse.y + camera.y;
+            }
+
+            if (!skillType || cds[activeSet][skillType] > 0) return;
+
+            cds[activeSet][skillType] = skillCooldowns[activeSet][skillType];
+            isAttacking = true; attackTimer = 0; damageDealt = false;
+            attackAngleTarget = Math.atan2(mouse.worldY - head.y, mouse.worldX - head.x);
+            currentAttackName = moves[activeSet][skillType];
+            attackData = { startX: head.x, startY: head.y, targetX: mouse.worldX, targetY: mouse.worldY };
+
+            if(currentAttackName === "SoulSwing") playerHP = Math.min(playerMaxHP, playerHP + 50);
+            if(currentAttackName === "DemonSlasher" || currentAttackName === "SlimeBlade" || currentAttackName === "NormalPunch") freezeFrames = 5;
+            if(currentAttackName === "Fuga") { freezeFrames = 18; textEffects.push({ text: "■ Open (Fuga)", x: head.x, y: head.y - 60, age: 0, maxAge: 70, color: '#ff6600' }); }
+            if(currentAttackName === "CeroOscuras") freezeFrames = 8;
+            if(currentAttackName === "DemonDestroyer") { freezeFrames = 25; textEffects.push({ text: "DEMON DESTROYER!", x: head.x, y: head.y - 60, age: 0, maxAge: 95, color: '#bc13fe' }); }
+            if(currentAttackName === "MalevolentShrine") textEffects.push({ text: "DOMAIN EXPANSION: MALEVOLENT SHRINE", x: head.x, y: head.y - 60, age: 0, maxAge: 90, color: '#ff3333' });
+            if(currentAttackName === "SeriousPunch") { freezeFrames = 25; impactFrames = 15; textEffects.push({ text: "SERIOUS PUNCH", x: head.x, y: head.y - 60, age: 0, maxAge: 60, color: '#ff0000' }); }
+            if(currentAttackName === "Hirudora") freezeFrames = 10;
+            if(currentAttackName === "NightGuy") { freezeFrames = 40; impactFrames = 20; textEffects.push({ text: "NIGHT GUY!", x: head.x, y: head.y - 60, age: 0, maxAge: 80, color: '#ff0000' }); }
+            if(currentAttackName === "DragonBone") { freezeFrames = 10; impactFrames = 5; }
+            if(currentAttackName === "SplitSoulKatana") { freezeFrames = 30; impactFrames = 15; textEffects.push({ text: "Split Soul", x: head.x, y: head.y - 60, age: 0, maxAge: 60, color: '#ffffff' }); }
+            if(currentAttackName === "PurgatoryOnigiri") { freezeFrames = 15; impactFrames = 8; }
+            if(currentAttackName === "ThirteenthForm") { freezeFrames = 30; impactFrames = 15; textEffects.push({ text: "Thirteenth Form", x: head.x, y: head.y - 60, age: 0, maxAge: 60, color: '#ffaa00' }); }
+            if(currentAttackName === "FirstFang") { freezeFrames = 10; impactFrames = 5; }
+            if(currentAttackName === "StringPerformance") { freezeFrames = 20; impactFrames = 12; textEffects.push({ text: "String Performance", x: head.x, y: head.y - 60, age: 0, maxAge: 70, color: '#ffdd00' }); }
+            if(currentAttackName === "Psychokinesis") freezeFrames = 10;
+            if(currentAttackName === "Mob100") { freezeFrames = 45; impactFrames = 30; textEffects.push({ text: "100% RAGE", x: head.x, y: head.y - 60, age: 0, maxAge: 90, color: '#aa00ff' }); }
+        }
+
+        window.addEventListener('mousedown', (e) => {
+            if (e.target.closest('#ui-layer') || e.target.closest('#start-menu') || e.target.closest('#mobile-controls')) return;
+            let skillType = e.button === 0 ? 'L' : (e.button === 2 ? 'R' : null);
+            if (skillType) useSkill(skillType);
+        });
+        window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // Mobile Buttons Events
+        document.getElementById('btn-skill-l').addEventListener('touchstart', (e) => { e.preventDefault(); useSkill('L'); });
+        document.getElementById('btn-skill-r').addEventListener('touchstart', (e) => { e.preventDefault(); useSkill('R'); });
+
+        // Virtual Joystick Controller Logic
+        const joyBase = document.getElementById('joystick-base');
+        const joyStick = document.getElementById('joystick-stick');
+
+        function handleJoystickMove(e) {
+            if (!joyActive) return;
+            const touch = e.touches ? e.touches[0] : e;
+            const rect = joyBase.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            let dx = touch.clientX - centerX;
+            let dy = touch.clientY - centerY;
+            const maxRadius = rect.width / 2;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist > maxRadius) {
+                dx = (dx / dist) * maxRadius;
+                dy = (dy / dist) * maxRadius;
+            }
+
+            joyStick.style.transform = `translate(${dx}px, ${dy}px)`;
+            joyVector.x = dx / maxRadius;
+            joyVector.y = dy / maxRadius;
+        }
+
+        joyBase.addEventListener('touchstart', (e) => { joyActive = true; handleJoystickMove(e); }, { passive: false });
+        window.addEventListener('touchmove', (e) => { if (joyActive) handleJoystickMove(e); }, { passive: false });
+        window.addEventListener('touchend', () => {
+            joyActive = false;
+            joyVector = { x: 0, y: 0 };
+            joyStick.style.transform = `translate(0px, 0px)`;
+        });
+
+        // Start Button Event
+        document.getElementById('start-btn').addEventListener('click', () => {
+            document.getElementById('start-menu').style.display = 'none';
+            gameStarted = true;
+        });
+
+        class Zombie {
+            constructor(x, y, isBoss = false) {
+                this.x = x; this.y = y; this.isBoss = isBoss;
+                this.maxHp = isBoss ? 2000 : 40; this.hp = this.maxHp;
+                this.speed = isBoss ? 5.0 : 1.8 + Math.random() * 1.5; 
+                this.radius = isBoss ? 45 : 15;
+                this.hitTimer = 0; this.damageCooldown = 0; 
+            }
+            draw() {
+                ctx.save(); ctx.translate(this.x, this.y);
+                if (this.hitTimer > 0) { ctx.fillStyle = 'white'; this.hitTimer--; } 
+                else { ctx.fillStyle = this.isBoss ? '#520000' : '#2d4a22'; }
+                ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI * 2); ctx.fill();
+                if (this.isBoss) { ctx.fillStyle = 'red'; ctx.fillRect(-50, -60, 100 * (this.hp / this.maxHp), 8); ctx.strokeStyle = 'black'; ctx.strokeRect(-50, -60, 100, 8); }
+                ctx.restore();
+            }
+        }
+
+        function spawnWave() {
+            zombies = [];
+            if (wave === 10) spawnEnemy(true);
+            else { let n = wave * 18; for (let i = 0; i < n; i++) spawnEnemy(false); }
+            updateUI();
+        }
+
+        function spawnEnemy(isBoss) {
+            let hx = segments[0].x, hy = segments[0].y, sx, sy;
+            do { sx = Math.random() * WORLD_SIZE; sy = Math.random() * WORLD_SIZE; } while (Math.hypot(sx - hx, sy - hy) < 700); 
+            zombies.push(new Zombie(sx, sy, isBoss));
+        }
+
+        const numSegments = 35; const segmentLength = 10; const segments = [];
+        for (let i = 0; i < numSegments; i++) segments.push({ x: WORLD_SIZE/2, y: WORLD_SIZE/2 + i * segmentLength, angle: 0 });
+        const legs = [];
+        [5, 12, 20].forEach(s => { legs.push({ spineIndex: s, side: -1, jointX: 0, jointY: 0, targetX: 0, targetY: 0, currentX: 0, currentY: 0, stepProgress: 1, maxLength: 50 }); legs.push({ spineIndex: s, side: 1, jointX: 0, jointY: 0, targetX: 0, targetY: 0, currentX: 0, currentY: 0, stepProgress: 1, maxLength: 50 }); });
+        let auraArmSegments = [{x:0,y:0},{x:0,y:0},{x:0,y:0}], lastHandPos = null;
+
+        function lerpAngle(c, t, s) { let d = t - c; while (d < -Math.PI) d += Math.PI * 2; while (d > Math.PI) d -= Math.PI * 2; return c + d * s; }
+        function angleDiff(a, b) { let d = a - b; while (d < -Math.PI) d += Math.PI * 2; while (d > Math.PI) d -= Math.PI * 2; return d; }
+
+        spawnWave();
+
+        function update() {
+            if (!gameStarted || isDead || won) return;
+            for (let set in cds) { if (cds[set].L > 0) cds[set].L--; if (cds[set].R > 0) cds[set].R--; }
+            updateUI();
+
+            if (impactFrames > 0) {
+                impactFrames--;
+                screenFx.style.background = impactFrames % 4 < 2 ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.9)';
+                if (impactFrames === 0) screenFx.style.background = 'transparent';
+            }
+
+            if (freezeFrames > 0) { freezeFrames--; return; }
+
+            const head = segments[0];
+            mouse.worldX = mouse.x + camera.x; mouse.worldY = mouse.y + camera.y;
+            
+            for (let i = groundEffects.length - 1; i >= 0; i--) { groundEffects[i].age++; if (groundEffects[i].age > groundEffects[i].maxAge) groundEffects.splice(i, 1); }
+            for (let i = textEffects.length - 1; i >= 0; i--) { textEffects[i].age++; if (textEffects[i].age > textEffects[i].maxAge) textEffects.splice(i, 1); }
+
+            let canMove = true; isUntargetable = false;
+
+            if (isAttacking) {
+                isUntargetable = true;
+                canMove = false; 
+                if (currentAttackName === "SoulSwing" && attackTimer >= 17) canMove = true;
+                if (currentAttackName === "KiBlast" && attackTimer >= 4) canMove = true;
+                if (currentAttackName === "NormalPunch" && attackTimer >= 4) canMove = true;
+                if (["Thunderclap"].includes(currentAttackName) && attackTimer >= 12) canMove = true;
+            }
+
+            // Movement Calculation (WASD / Joystick)
+            let moveX = 0, moveY = 0;
+            if (keys.w) moveY -= 1;
+            if (keys.s) moveY += 1;
+            if (keys.a) moveX -= 1;
+            if (keys.d) moveX += 1;
+
+            if (joyActive || Math.hypot(joyVector.x, joyVector.y) > 0.1) {
+                moveX = joyVector.x;
+                moveY = joyVector.y;
+            }
+
+            const moveMag = Math.hypot(moveX, moveY);
+
+            if (canMove && moveMag > 0.1) {
+                const normX = moveX / (moveMag > 1 ? moveMag : 1);
+                const normY = moveY / (moveMag > 1 ? moveMag : 1);
+                head.x += normX * 5.5;
+                head.y += normY * 5.5;
+            }
+
+            // Aim Logic
+            if (isMobile) {
+                head.angle = -Math.PI / 2; // Fixed aim 75px directly above head
+            } else {
+                const hDx = mouse.worldX - head.x, hDy = mouse.worldY - head.y;
+                head.angle = lerpAngle(head.angle, Math.atan2(hDy, hDx), 0.15);
+            }
+            
+            head.x = Math.max(20, Math.min(WORLD_SIZE - 20, head.x)); head.y = Math.max(20, Math.min(WORLD_SIZE - 20, head.y));
+            camera.x = head.x - canvas.width / 2; camera.y = head.y - canvas.height / 2;
+
+            if (isAttacking) {
+                attackTimer++;
+                
+                if (currentAttackName === "SoulSwing") {
+                    if (attackTimer > 12 && !damageDealt) { 
+                        damageDealt = true;
+                        zombies.forEach(z => { if (Math.hypot(z.x - head.x, z.y - head.y) < 180 && Math.abs(angleDiff(Math.atan2(z.y - head.y, z.x - head.x), attackAngleTarget)) < Math.PI / 2) { z.hp -= 30; z.hitTimer = 5; groundEffects.push({ type: 'blood', x: z.x, y: z.y, radius: 15 + Math.random()*15, age: 0, maxAge: 120 }); } });
+                    }
+                    if (attackTimer >= 17) isAttacking = false;
+                } else if (currentAttackName === "HollowPurple") {
+                    head.angle = lerpAngle(head.angle, attackAngleTarget, 0.2);
+                    if (attackTimer === 40) { freezeFrames = 15; impactFrames = 8; groundEffects.push({ type: 'hp_blast', x: head.x, y: head.y, angle: attackAngleTarget, age: 0, maxAge: 60 }); }
+                    if (attackTimer > 40 && attackTimer <= 100) {
+                        let dist = (attackTimer - 40) * 45, bx = head.x + Math.cos(attackAngleTarget)*dist, by = head.y + Math.sin(attackAngleTarget)*dist;
+                        zombies.forEach(z => { if (Math.hypot(z.x - bx, z.y - by) < 180) { z.hp -= 9999; z.hitTimer = 2; } });
+                    }
+                    if (attackTimer <= 40) groundEffects.push({ type: 'hp_charge', x: head.x, y: head.y, angle: attackAngleTarget, age: attackTimer, maxAge: 40 });
+                    if (attackTimer >= 100) isAttacking = false;
+                } else if (currentAttackName === "Zoltraak") {
+                    head.angle = attackAngleTarget;
+                    if (attackTimer === 1) { textEffects.push({ text: "Zoltraak", x: head.x, y: head.y - 60, age: 0, maxAge: 120, color: '#ffffff' }); groundEffects.push({ type: 'zoltraak_charge', x: head.x, y: head.y, angle: attackAngleTarget, age: 0, maxAge: 120 }); }
+                    if (attackTimer === 120) { impactFrames = 8; groundEffects.push({ type: 'zoltraak_blast', x: head.x, y: head.y, angle: attackAngleTarget, age: 0, maxAge: 25 }); zombies.forEach(z => { const px = z.x - head.x, py = z.y - head.y; if ((px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget)) > 0 && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 60) { z.hp -= 1500; z.hitTimer = 15; } }); }
+                    if (attackTimer >= 145) isAttacking = false;
+                } else if (currentAttackName === "Vollzanbel") {
+                    head.angle = attackAngleTarget;
+                    if (attackTimer === 1) { textEffects.push({ text: "Vollzanbel", x: head.x, y: head.y - 60, age: 0, maxAge: 150, color: '#ff5500' }); groundEffects.push({ type: 'vollzanbel_charge', x: head.x, y: head.y, age: 0, maxAge: 150 }); }
+                    if (attackTimer === 150) { impactFrames = 15; groundEffects.push({ type: 'vollzanbel_blast', x: head.x, y: head.y, age: 0, maxAge: 40 }); zombies.forEach(z => { if (Math.hypot(z.x - head.x, z.y - head.y) < 700) { z.hp -= 2000; z.hitTimer = 20; } }); }
+                    if (attackTimer >= 190) isAttacking = false;
+                } else if (currentAttackName === "GraspHeart") {
+                    head.angle = attackAngleTarget;
+                    if (attackTimer === 1) { textEffects.push({ text: "[Grasp Heart]", x: head.x, y: head.y - 60, age: 0, maxAge: 120, color: '#ff0000' }); attackData.targets = [...zombies].sort((a,b) => Math.hypot(a.x - head.x, a.y - head.y) - Math.hypot(b.x - head.x, b.y - head.y)).slice(0, 5); attackData.targets.forEach(z => { groundEffects.push({ type: 'grasp_charge', z: z, age: 0, maxAge: 120 }); }); }
+                    if (attackTimer === 120) { impactFrames = 6; if (attackData.targets) { attackData.targets.forEach(z => { groundEffects.push({ type: 'grasp_crush', x: z.x, y: z.y, age: 0, maxAge: 30 }); z.hp -= 5000; z.hitTimer = 30; }); } }
+                    if (attackTimer >= 150) isAttacking = false;
+                } else if (currentAttackName === "FallenDown") {
+                    if (attackTimer === 1) { textEffects.push({ text: "Super Tier Magic...", x: head.x, y: head.y - 60, age: 0, maxAge: 90, color: '#00ffff' }); groundEffects.push({ type: 'fallendown_charge', x: attackData.targetX, y: attackData.targetY, age: 0, maxAge: 180 }); }
+                    if (attackTimer === 90) textEffects.push({ text: "Fallen Down!", x: head.x, y: head.y - 60, age: 0, maxAge: 90, color: '#ffffff' });
+                    if (attackTimer === 180) { impactFrames = 30; groundEffects.push({ type: 'fallendown_blast', x: attackData.targetX, y: attackData.targetY, age: 0, maxAge: 60 }); zombies.forEach(z => { if (Math.hypot(z.x - attackData.targetX, z.y - attackData.targetY) < 600) { z.hp -= 6000; z.hitTimer = 30; } }); }
+                    if (attackTimer >= 240) isAttacking = false;
+                } else if (currentAttackName === "Thunderclap") {
+                    if (attackTimer < 12) head.angle = attackAngleTarget;
+                    else if (attackTimer === 12) {
+                        let d = Math.min(800, Math.hypot(attackData.targetX - attackData.startX, attackData.targetY - attackData.startY)); let eX = Math.max(20, Math.min(WORLD_SIZE - 20, attackData.startX + Math.cos(attackAngleTarget) * d)), eY = Math.max(20, Math.min(WORLD_SIZE - 20, attackData.startY + Math.sin(attackAngleTarget) * d)); head.x = eX; head.y = eY;
+                        zombies.forEach(z => { const px = z.x - attackData.startX, py = z.y - attackData.startY; const proj = px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget); if (proj > 0 && proj < d && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 100) { z.hp -= 50; z.hitTimer = 10; } });
+                        for(let i=0; i<5; i++) groundEffects.push({ type: 'lightning', x1: attackData.startX, y1: attackData.startY, x2: eX, y2: eY, angle: attackAngleTarget, age: 0, maxAge: 20 + Math.random()*10 });
+                    }
+                    if (attackTimer >= 20) isAttacking = false;
+                } else if (currentAttackName === "Mugetsu") {
+                    head.angle = attackAngleTarget;
+                    if (attackTimer <= 36) screenFx.style.background = `rgba(0, 0, 0, ${(attackTimer/36) * 0.9})`;
+                    else if (attackTimer === 37) { screenFx.style.background = 'transparent'; zombies.forEach(z => { const px = z.x - head.x, py = z.y - head.y; if ((px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget)) > 0 && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 300) { z.hp -= 300; z.hitTimer = 15; } }); }
+                    if (attackTimer > 36 && attackTimer < 48) groundEffects.push({ type: 'mugetsu', x: head.x, y: head.y, angle: attackAngleTarget, age: 0, maxAge: 30, scale: (attackTimer-36)/12 });
+                    if (attackTimer >= 48) { isAttacking = false; screenFx.style.background = 'transparent'; }
+                } else if (currentAttackName === "KiBlast") {
+                    if (attackTimer === 4) { zombies.forEach(z => { if (Math.hypot(z.x - head.x, z.y - head.y) < 320 && Math.abs(angleDiff(Math.atan2(z.y - head.y, z.x - head.x), attackAngleTarget)) < Math.PI / 6) { z.hp -= 25; z.hitTimer = 4; } }); groundEffects.push({ type: 'kiblast', x: head.x + Math.cos(attackAngleTarget)*25, y: head.y + Math.sin(attackAngleTarget)*25, angle: attackAngleTarget, age: 0, maxAge: 12 }); }
+                    if (attackTimer >= 10) isAttacking = false;
+                } else if (currentAttackName === "Kamehameha") {
+                    head.angle = lerpAngle(head.angle, attackAngleTarget, 0.2);
+                    if (attackTimer > 30 && attackTimer <= 70) { zombies.forEach(z => { const px = z.x - head.x, py = z.y - head.y; if ((px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget)) > 0 && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 75 + z.radius) { z.hp -= 5.0; z.hitTimer = 2; } }); }
+                    if (attackTimer >= 80) isAttacking = false;
+                } else if (currentAttackName === "Fuga") {
+                    if (attackTimer === 1) { impactFrames = 10; zombies.forEach(z => { if (Math.hypot(z.x - head.x, z.y - head.y) < 600 && Math.abs(angleDiff(Math.atan2(z.y - head.y, z.x - head.x), attackAngleTarget)) < Math.PI / 4) { z.hp -= 160; z.hitTimer = 12; } }); groundEffects.push({ type: 'fuga_arrow', x1: head.x, y1: head.y, x2: head.x + Math.cos(attackAngleTarget)*600, y2: head.y + Math.sin(attackAngleTarget)*600, age: 0, maxAge: 25 }); }
+                    if (attackTimer >= 15) isAttacking = false;
+                } else if (currentAttackName === "MalevolentShrine") {
+                    if (attackTimer <= 30) domainFx.style.opacity = attackTimer / 30;
+                    else if (attackTimer <= 90) { domainFx.style.opacity = 1; zombies.forEach(z => { if (Math.hypot(z.x - head.x, z.y - head.y) < 600) { z.hp -= 4.0; if(Math.random() < 0.2) { z.hitTimer = 2; groundEffects.push({ type: 'dismantle', x: z.x + (Math.random()-0.5)*30, y: z.y + (Math.random()-0.5)*30, size: 20 + Math.random()*20, age: 0, maxAge: 10 }); } } }); if (Math.random() > 0.3) { let rD = Math.random() * 600, rA = Math.random() * Math.PI * 2; groundEffects.push({ type: 'dismantle', x: head.x + Math.cos(rA)*rD, y: head.y + Math.sin(rA)*rD, size: 40 + Math.random()*40, age: 0, maxAge: 15 }); } }
+                    if (attackTimer >= 100) { domainFx.style.opacity = 0; isAttacking = false; }
+                } else if (currentAttackName === "DemonSlasher") {
+                    if (attackTimer === 4) { let sD = 300, eX = Math.max(20, Math.min(WORLD_SIZE - 20, attackData.startX + Math.cos(attackAngleTarget) * sD)), eY = Math.max(20, Math.min(WORLD_SIZE - 20, attackData.startY + Math.sin(attackAngleTarget) * sD)); head.x = eX; head.y = eY; zombies.forEach(z => { if (Math.hypot(z.x - attackData.startX, z.y - attackData.startY) < sD + 40) { z.hp -= 120; z.hitTimer = 8; } }); groundEffects.push({ type: 'black_slash', x1: attackData.startX, y1: attackData.startY, x2: eX, y2: eY, age: 0, maxAge: 16 }); }
+                    if (attackTimer >= 12) isAttacking = false;
+                } else if (currentAttackName === "DemonDestroyer") {
+                    if (attackTimer === 10) { let cD = 1000, eX = Math.max(20, Math.min(WORLD_SIZE - 20, head.x + Math.cos(attackAngleTarget) * cD)), eY = Math.max(20, Math.min(WORLD_SIZE - 20, head.y + Math.sin(attackAngleTarget) * cD)); head.x = eX; head.y = eY; zombies.forEach(z => { const px = z.x - attackData.startX, py = z.y - attackData.startY, proj = px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget); if (proj > 0 && proj < cD && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 300) { z.hp -= 1500; z.hitTimer = 25; } }); groundEffects.push({ type: 'demon_destroyer', x1: attackData.startX, y1: attackData.startY, x2: eX, y2: eY, angle: attackAngleTarget, age: 0, maxAge: 40 }); }
+                    if (attackTimer >= 20) isAttacking = false;
+                } else if (currentAttackName === "DragonBone") {
+                    if (attackTimer === 5) { let sD = 400, eX = Math.max(20, Math.min(WORLD_SIZE - 20, head.x + Math.cos(attackAngleTarget) * sD)), eY = Math.max(20, Math.min(WORLD_SIZE - 20, head.y + Math.sin(attackAngleTarget) * sD)); head.x = eX; head.y = eY; groundEffects.push({ type: 'dragon_bone', x: eX, y: eY, age: 0, maxAge: 20 }); zombies.forEach(z => { if (Math.hypot(z.x - eX, z.y - eY) < 300) { z.hp -= 400; z.hitTimer = 10; } }); }
+                    if (attackTimer >= 12) isAttacking = false;
+                } else if (currentAttackName === "SplitSoulKatana") {
+                    if (attackTimer === 5) { let cD = 1200, eX = Math.max(20, Math.min(WORLD_SIZE - 20, head.x + Math.cos(attackAngleTarget) * cD)), eY = Math.max(20, Math.min(WORLD_SIZE - 20, head.y + Math.sin(attackAngleTarget) * cD)); groundEffects.push({ type: 'split_soul', x1: head.x, y1: head.y, x2: eX, y2: eY, age: 0, maxAge: 30 }); head.x = eX; head.y = eY; zombies.forEach(z => { const px = z.x - attackData.startX, py = z.y - attackData.startY, proj = px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget); if (proj > 0 && proj < cD && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 100) { z.hp -= 3000; z.hitTimer = 25; } }); }
+                    if (attackTimer >= 15) isAttacking = false;
+                } else if (currentAttackName === "CeroOscuras") {
+                    if (attackTimer === 3) { zombies.forEach(z => { const px = z.x - head.x, py = z.y - head.y; if ((px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget)) > 0 && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 80) { z.hp -= 150; z.hitTimer = 8; } }); groundEffects.push({ type: 'cero_oscuras', x: head.x, y: head.y, angle: attackAngleTarget, age: 0, maxAge: 25 }); }
+                    if (attackTimer >= 15) isAttacking = false;
+                } else if (currentAttackName === "LanzaDelRelampago") {
+                    if (attackTimer === 1) { freezeFrames = 15; impactFrames = 5; textEffects.push({ text: "Lanza...", x: head.x, y: head.y - 60, age: 0, maxAge: 40, color: '#00ff66' }); }
+                    if (attackTimer === 20) { freezeFrames = 20; impactFrames = 10; textEffects.push({ text: "del Relampago.", x: head.x, y: head.y - 60, age: 0, maxAge: 60, color: '#00ff66' }); }
+                    if (attackTimer === 40) { freezeFrames = 35; impactFrames = 25; zombies.forEach(z => { if (Math.hypot(z.x - attackData.targetX, z.y - attackData.targetY) < 500) { z.hp -= 800; z.hitTimer = 20; } }); groundEffects.push({ type: 'lanza_blast', x: attackData.targetX, y: attackData.targetY, age: 0, maxAge: 60 }); }
+                    if (attackTimer >= 60) isAttacking = false;
+                } else if (currentAttackName === "SlimeBlade") {
+                    if (attackTimer === 2) { zombies.forEach(z => { const px = z.x - head.x, py = z.y - head.y; if ((px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget)) > 0 && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 30) { z.hp -= 130; z.hitTimer = 6; } }); groundEffects.push({ type: 'slime_blade', x: head.x, y: head.y, angle: attackAngleTarget, age: 0, maxAge: 12 }); }
+                    if (attackTimer >= 10) isAttacking = false;
+                } else if (currentAttackName === "IAmAtomic") {
+                    if (attackTimer === 1) { freezeFrames = 20; impactFrames = 5; screenFx.style.background = 'rgba(10,0,20,0.9)'; textEffects.push({ text: "I AM...", x: head.x, y: head.y - 60, age: 0, maxAge: 50, color: '#cc00ff' }); }
+                    if (attackTimer === 30) { freezeFrames = 25; impactFrames = 8; textEffects.push({ text: "ATOMIC.", x: head.x, y: head.y - 60, age: 0, maxAge: 80, color: '#cc00ff' }); groundEffects.push({ type: 'atomic_charge', x: head.x, y: head.y, age: 0, maxAge: 40 }); }
+                    if (attackTimer === 60) { freezeFrames = 45; impactFrames = 30; screenFx.style.background = 'transparent'; zombies.forEach(z => { z.hp -= 9999; z.hitTimer = 30; }); groundEffects.push({ type: 'atomic_blast', x: head.x, y: head.y, age: 0, maxAge: 80 }); }
+                    if (attackTimer >= 90) isAttacking = false;
+                } else if (currentAttackName === "NormalPunch") {
+                    if (attackTimer === 3) { zombies.forEach(z => { const px = z.x - head.x, py = z.y - head.y; if ((px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget)) > 0 && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 60 && Math.hypot(px, py) < 400) { z.hp -= 200; z.hitTimer = 10; } }); groundEffects.push({ type: 'normal_punch', x: head.x, y: head.y, angle: attackAngleTarget, age: 0, maxAge: 15 }); }
+                    if (attackTimer >= 8) isAttacking = false;
+                } else if (currentAttackName === "SeriousPunch") {
+                    if (attackTimer === 1) { groundEffects.push({ type: 'serious_punch', x: head.x, y: head.y, angle: attackAngleTarget, age: 0, maxAge: 40 }); zombies.forEach(z => { const px = z.x - head.x, py = z.y - head.y; if ((px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget)) > 0 && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 500) { z.hp -= 5000; z.hitTimer = 30; } }); }
+                    if (attackTimer >= 35) isAttacking = false;
+                } else if (currentAttackName === "Hirudora") {
+                    if (attackTimer === 2) { groundEffects.push({ type: 'hirudora', x: head.x, y: head.y, angle: attackAngleTarget, age: 0, maxAge: 30 }); }
+                    if (attackTimer === 15) { zombies.forEach(z => { const px = z.x - head.x, py = z.y - head.y; if ((px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget)) > 0 && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 250 && Math.hypot(px, py) < 1200) { z.hp -= 400; z.hitTimer = 15; } }); }
+                    if (attackTimer >= 25) isAttacking = false;
+                } else if (currentAttackName === "NightGuy") {
+                    if (attackTimer === 1) { screenFx.style.background = 'rgba(255, 0, 0, 0.4)'; groundEffects.push({ type: 'night_guy_aura', x: head.x, y: head.y, age: 0, maxAge: 40 }); }
+                    if (attackTimer === 40) { screenFx.style.background = 'transparent'; let d = 1500, eX = Math.max(20, Math.min(WORLD_SIZE - 20, head.x + Math.cos(attackAngleTarget) * d)), eY = Math.max(20, Math.min(WORLD_SIZE - 20, head.y + Math.sin(attackAngleTarget) * d)); groundEffects.push({ type: 'night_guy_dash', x1: head.x, y1: head.y, x2: eX, y2: eY, age: 0, maxAge: 30 }); head.x = eX; head.y = eY; zombies.forEach(z => { const px = z.x - attackData.startX, py = z.y - attackData.startY, proj = px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget); if (proj > 0 && proj < d && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 300) { z.hp -= 8000; z.hitTimer = 40; } }); }
+                    if (attackTimer >= 50) isAttacking = false;
+                } else if (currentAttackName === "PurgatoryOnigiri") {
+                    if (attackTimer === 4) { let d = 1000, eX = Math.max(20, Math.min(WORLD_SIZE - 20, head.x + Math.cos(attackAngleTarget) * d)), eY = Math.max(20, Math.min(WORLD_SIZE - 20, head.y + Math.sin(attackAngleTarget) * d)); groundEffects.push({ type: 'onigiri', x1: head.x, y1: head.y, x2: eX, y2: eY, angle: attackAngleTarget, age: 0, maxAge: 30 }); head.x = eX; head.y = eY; zombies.forEach(z => { const px = z.x - attackData.startX, py = z.y - attackData.startY, proj = px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget); if (proj > 0 && proj < d && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 250) { z.hp -= 800; z.hitTimer = 18; } }); }
+                    if (attackTimer >= 20) isAttacking = false;
+                } else if (currentAttackName === "ThirteenthForm") {
+                    if (attackTimer === 1) { groundEffects.push({ type: 'thirteenth_form', x: head.x, y: head.y, angle: attackAngleTarget, age: 0, maxAge: 45 }); let d = 1200, eX = Math.max(20, Math.min(WORLD_SIZE - 20, head.x + Math.cos(attackAngleTarget) * d)), eY = Math.max(20, Math.min(WORLD_SIZE - 20, head.y + Math.sin(attackAngleTarget) * d)); head.x = eX; head.y = eY; zombies.forEach(z => { const px = z.x - attackData.startX, py = z.y - attackData.startY, proj = px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget); if (proj > 0 && proj < d && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 300) { z.hp -= 1500; z.hitTimer = 25; } }); }
+                    if (attackTimer >= 45) isAttacking = false;
+                } else if (currentAttackName === "FirstFang") {
+                    if (attackTimer === 5) { groundEffects.push({ type: 'first_fang', x: head.x, y: head.y, angle: attackAngleTarget, age: 0, maxAge: 25 }); let d = 600, eX = Math.max(20, Math.min(WORLD_SIZE - 20, head.x + Math.cos(attackAngleTarget) * d)), eY = Math.max(20, Math.min(WORLD_SIZE - 20, head.y + Math.sin(attackAngleTarget) * d)); head.x = eX; head.y = eY; zombies.forEach(z => { const px = z.x - attackData.startX, py = z.y - attackData.startY, proj = px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget); if (proj > 0 && proj < d && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 350) { z.hp -= 600; z.hitTimer = 12; } }); }
+                    if (attackTimer >= 20) isAttacking = false;
+                } else if (currentAttackName === "StringPerformance") {
+                    if (attackTimer === 10) { groundEffects.push({ type: 'string_performance', x1: head.x, y1: head.y, angle: attackAngleTarget, age: 0, maxAge: 40 }); let d = 1100, eX = Math.max(20, Math.min(WORLD_SIZE - 20, head.x + Math.cos(attackAngleTarget) * d)), eY = Math.max(20, Math.min(WORLD_SIZE - 20, head.y + Math.sin(attackAngleTarget) * d)); head.x = eX; head.y = eY; zombies.forEach(z => { const px = z.x - attackData.startX, py = z.y - attackData.startY, proj = px * Math.cos(attackAngleTarget) + py * Math.sin(attackAngleTarget); if (proj > 0 && proj < d && Math.abs(px * Math.sin(attackAngleTarget) - py * Math.cos(attackAngleTarget)) < 400) { z.hp -= 2000; z.hitTimer = 30; } }); }
+                    if (attackTimer >= 40) isAttacking = false;
+                } else if (currentAttackName === "Psychokinesis") {
+                    if (attackTimer === 2) { groundEffects.push({ type: 'psychokinesis', x: head.x, y: head.y, age: 0, maxAge: 25 }); zombies.forEach(z => { if (Math.hypot(z.x - head.x, z.y - head.y) < 500) { z.hp -= 180; z.hitTimer = 15; z.x += (head.x - z.x)*0.2; z.y += (head.y - z.y)*0.2; } }); }
+                    if (attackTimer >= 20) isAttacking = false;
+                } else if (currentAttackName === "Mob100") {
+                    if (attackTimer === 1) { groundEffects.push({ type: 'mob_charge', x: head.x, y: head.y, age: 0, maxAge: 45 }); screenFx.style.background = 'rgba(0,0,0,0.8)'; }
+                    if (attackTimer === 45) { screenFx.style.background = 'transparent'; groundEffects.push({ type: 'mob_blast', x: head.x, y: head.y, age: 0, maxAge: 50 }); zombies.forEach(z => { if (Math.hypot(z.x - head.x, z.y - head.y) < 1200) { z.hp -= 6000; z.hitTimer = 35; } }); }
+                    if (attackTimer >= 80) isAttacking = false;
+                }
+            }
+
+            for (let i = zombies.length - 1; i >= 0; i--) {
+                const z = zombies[i]; if (z.hp <= 0) { zombies.splice(i, 1); continue; }
+                const dx = head.x - z.x, dy = head.y - z.y, dist = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
+                z.x += Math.cos(ang) * z.speed; z.y += Math.sin(ang) * z.speed;
+                for (let j = 0; j < zombies.length; j++) { if (i !== j) { const z2 = zombies[j]; if (Math.hypot(z.x - z2.x, z.y - z2.y) < z.radius + z2.radius) { const push = Math.atan2(z.y - z2.y, z.x - z2.x); z.x += Math.cos(push)*0.5; z.y += Math.sin(push)*0.5; } } }
+                if (z.damageCooldown > 0) z.damageCooldown--;
+                if (dist < z.radius + 20 && z.damageCooldown === 0 && !isUntargetable) {
+                    playerHP -= z.isBoss ? 80 : 20; z.damageCooldown = 30; updateUI();
+                    if (playerHP <= 0) { playerHP = 0; isDead = true; document.getElementById('game-over').style.display = 'block'; }
+                }
+            }
+
+            if (zombies.length === 0 && !isDead) { if (wave === maxWaves) { won = true; document.getElementById('victory').style.display = 'block'; } else { wave++; spawnWave(); } }
+
+            let ikSteps = (["Thunderclap", "DemonSlasher", "BlackMeteorite", "NightGuy", "PurgatoryOnigiri", "ThirteenthForm", "DemonDestroyer", "SplitSoulKatana", "FirstFang", "StringPerformance"].includes(currentAttackName) && attackTimer === 1) ? 10 : 1;
+            for(let step=0; step<ikSteps; step++) {
+                for (let i = 1; i < numSegments; i++) { const prev = segments[i-1], curr = segments[i]; curr.angle = Math.atan2(prev.y - curr.y, prev.x - curr.x); curr.x = prev.x - Math.cos(curr.angle) * segmentLength; curr.y = prev.y - Math.sin(curr.angle) * segmentLength; }
+                legs.forEach(leg => {
+                    const pSeg = segments[leg.spineIndex], hAng = pSeg.angle + (Math.PI/2) * leg.side; leg.jointX = pSeg.x + Math.cos(hAng)*12; leg.jointY = pSeg.y + Math.sin(hAng)*12;
+                    const rAng = pSeg.angle + (Math.PI/3.5) * leg.side, dX = leg.jointX + Math.cos(rAng)*leg.maxLength, dY = leg.jointY + Math.sin(rAng)*leg.maxLength;
+                    if (Math.hypot(dX - leg.currentX, dY - leg.currentY) > leg.maxLength * 1.1 && leg.stepProgress >= 1) { leg.targetX = dX + (Math.random()*8-4); leg.targetY = dY + (Math.random()*8-4); leg.stepProgress = 0; }
+                    if (leg.stepProgress < 1) { leg.stepProgress = Math.min(1, leg.stepProgress + 0.12); const t = leg.stepProgress, mX = (leg.currentX + leg.targetX)/2, mY = (leg.currentY + leg.targetY)/2 - 15; leg.currentX = (1-t)*(1-t)*leg.currentX + 2*(1-t)*t*mX + t*t*leg.targetX; leg.currentY = (1-t)*(1-t)*leg.currentY + 2*(1-t)*t*mY + t*t*leg.targetY; }
+                });
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#030305'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.save(); ctx.translate(-camera.x, -camera.y);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; ctx.lineWidth = 2;
+            for (let i = 0; i <= WORLD_SIZE; i += 200) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, WORLD_SIZE); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(WORLD_SIZE, i); ctx.stroke(); }
+
+            if (currentAttackName === "MalevolentShrine" && attackTimer > 10 && attackTimer <= 100) { let op = Math.min(1, attackTimer/30); if(attackTimer > 90) op = 1 - (attackTimer-90)/10; ctx.fillStyle = `rgba(100, 0, 0, ${op * 0.25})`; ctx.beginPath(); ctx.arc(segments[0].x, segments[0].y, 600, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = `rgba(255, 0, 0, ${op * 0.8})`; ctx.lineWidth = 3; ctx.setLineDash([20, 15]); ctx.stroke(); ctx.setLineDash([]); }
+
+            groundEffects.forEach(fx => {
+                const alpha = Math.max(0, 1 - (fx.age / fx.maxAge));
+                if (fx.type === 'hp_charge') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.rotate(fx.angle); ctx.globalCompositeOperation = 'lighter'; const p = fx.age/fx.maxAge; ctx.fillStyle = `rgba(0, 0, 255, ${p})`; ctx.beginPath(); ctx.arc(50 - Math.sin(fx.angle)*(40*(1-p)), 50 + Math.cos(fx.angle)*(40*(1-p)), 15+p*10, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = `rgba(255, 0, 0, ${p})`; ctx.beginPath(); ctx.arc(50 + Math.sin(fx.angle)*(40*(1-p)), 50 - Math.cos(fx.angle)*(40*(1-p)), 15+p*10, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'hp_blast') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.rotate(fx.angle); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(148, 0, 211, ${alpha})`; ctx.beginPath(); ctx.arc(50 + fx.age*45, 50, 150, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = `rgba(255, 200, 255, ${alpha})`; ctx.lineWidth = 20; ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'demon_destroyer') { ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = `rgba(0, 0, 0, ${alpha})`; ctx.lineWidth = 250; ctx.beginPath(); ctx.moveTo(fx.x1, fx.y1); ctx.lineTo(fx.x2, fx.y2); ctx.stroke(); ctx.strokeStyle = `rgba(255, 0, 50, ${alpha})`; ctx.lineWidth = 40; ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'dragon_bone') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, 200, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = `rgba(100, 100, 100, ${alpha})`; ctx.lineWidth = 10; ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'split_soul') { ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`; ctx.lineWidth = 15; ctx.beginPath(); ctx.moveTo(fx.x1, fx.y1); ctx.lineTo(fx.x2, fx.y2); ctx.stroke(); ctx.strokeStyle = `rgba(0, 0, 0, ${alpha})`; ctx.lineWidth = 5; ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'thirteenth_form') { ctx.save(); ctx.translate(fx.x + Math.cos(fx.angle)*fx.age*26, fx.y + Math.sin(fx.angle)*fx.age*26); ctx.rotate(fx.angle); ctx.strokeStyle = `rgba(255, 80, 0, ${alpha})`; ctx.lineWidth = 80; for(let i=0; i<3; i++) { ctx.beginPath(); ctx.arc(0, 0, 150 + i*40, -Math.PI, Math.PI); ctx.stroke(); } ctx.fillStyle = `rgba(255, 200, 50, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, 100, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'first_fang') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255, 150, 0, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, 300, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = `rgba(255, 255, 50, ${alpha})`; ctx.lineWidth = 20; ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'string_performance') { ctx.save(); ctx.translate(fx.x1, fx.y1); ctx.rotate(fx.angle); ctx.globalCompositeOperation = 'lighter'; for(let i=0; i<6; i++) { ctx.fillStyle = `rgba(255, 100, 0, ${alpha})`; ctx.beginPath(); ctx.arc(i*180, (Math.random()-0.5)*150, 150, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = `rgba(255, 255, 50, ${alpha})`; ctx.beginPath(); ctx.arc(i*180, (Math.random()-0.5)*150, 80, 0, Math.PI*2); ctx.fill(); } ctx.restore(); }
+                else if (fx.type === 'zoltraak_charge') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.rotate(fx.angle); ctx.globalCompositeOperation = 'lighter'; ctx.beginPath(); ctx.arc(40, 0, Math.max(0, 80 - fx.age*0.6), 0, Math.PI*2); ctx.strokeStyle = `rgba(180, 50, 255, ${alpha})`; ctx.lineWidth = 4; ctx.stroke(); ctx.beginPath(); ctx.arc(40, 0, Math.max(0, 40 - fx.age*0.3), 0, Math.PI*2); ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`; ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'zoltraak_blast') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.rotate(fx.angle); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.strokeStyle = `rgba(140, 0, 255, ${alpha})`; ctx.lineWidth = 140; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(3000, 0); ctx.stroke(); ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`; ctx.lineWidth = 60; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(3000, 0); ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'vollzanbel_charge') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(255, 100, 0, ${alpha})`; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(0, 0, 150 + Math.sin(fx.age*0.2)*20, 0, Math.PI*2); ctx.stroke(); ctx.fillStyle = `rgba(255, 50, 0, ${alpha * 0.2})`; ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'vollzanbel_blast') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255, 120, 20, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, 700, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, 600, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'grasp_charge') { if (fx.z && fx.z.hp > 0) { ctx.save(); ctx.translate(fx.z.x, fx.z.y); ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, fx.z.radius + 30 + Math.sin(fx.age*0.3)*10, 0, Math.PI*2); ctx.stroke(); ctx.fillStyle = `rgba(255, 0, 0, ${alpha * 0.3})`; ctx.fill(); ctx.restore(); } }
+                else if (fx.type === 'grasp_crush') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, 80, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = `rgba(150, 0, 0, ${alpha})`; for(let p=0; p<8; p++) { ctx.beginPath(); ctx.arc((Math.random()-0.5)*100, (Math.random()-0.5)*100, Math.random()*20, 0, Math.PI*2); ctx.fill(); } ctx.restore(); }
+                else if (fx.type === 'fallendown_charge') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`; ctx.lineWidth = 5; ctx.setLineDash([30, 20]); ctx.rotate(fx.age * 0.02); ctx.beginPath(); ctx.arc(0, 0, 600, 0, Math.PI*2); ctx.stroke(); ctx.rotate(-fx.age * 0.04); ctx.beginPath(); ctx.arc(0, 0, 500, 0, Math.PI*2); ctx.stroke(); ctx.rotate(fx.age * 0.06); ctx.beginPath(); ctx.arc(0, 0, 400, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]); ctx.restore(); }
+                else if (fx.type === 'fallendown_blast') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(200, 255, 255, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, 600, 0, Math.PI*2); ctx.fill(); ctx.fillRect(-600, -2000, 1200, 4000); ctx.fillStyle = `rgba(0, 150, 255, ${alpha * 0.5})`; ctx.fillRect(-650, -2000, 1300, 4000); ctx.restore(); }
+                else if (fx.type === 'slash') { ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = `rgba(140, 70, 255, ${alpha * 0.7})`; ctx.lineWidth = fx.width * 1.5; ctx.beginPath(); ctx.moveTo(fx.x1, fx.y1); ctx.lineTo(fx.x2, fx.y2); ctx.stroke(); ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`; ctx.lineWidth = fx.width * 0.5; ctx.beginPath(); ctx.moveTo(fx.x1, fx.y1); ctx.lineTo(fx.x2, fx.y2); ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'blood') { ctx.fillStyle = `rgba(100, 0, 0, ${alpha * 0.5})`; ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.radius, 0, Math.PI*2); ctx.fill(); }
+                else if (fx.type === 'lightning') { ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'miter'; ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(255, 255, 50, ${alpha})`; ctx.lineWidth = 3 + Math.random()*4; ctx.beginPath(); ctx.moveTo(fx.x1, fx.y1); for (let s=1; s<=10; s++) ctx.lineTo(fx.x1 + (fx.x2 - fx.x1)*(s/10) + (Math.random()-0.5)*100, fx.y1 + (fx.y2 - fx.y1)*(s/10) + (Math.random()-0.5)*100); ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'mugetsu') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.rotate(fx.angle); ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`; ctx.fillRect(0, -150 * fx.scale, 4000, 300 * fx.scale); ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`; ctx.lineWidth = 15; ctx.beginPath(); ctx.moveTo(0, -150 * fx.scale); ctx.lineTo(4000, -150 * fx.scale); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 150 * fx.scale); ctx.lineTo(4000, 150 * fx.scale); ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'dismantle') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-fx.size, -fx.size); ctx.lineTo(fx.size, fx.size); ctx.stroke(); ctx.beginPath(); ctx.moveTo(fx.size, -fx.size); ctx.lineTo(-fx.size, fx.size); ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'kiblast') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(0, 220, 255, ${alpha})`; ctx.beginPath(); ctx.arc(fx.x + Math.cos(fx.angle)*fx.age*22, fx.y + Math.sin(fx.angle)*fx.age*22, 20, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'fuga_arrow') { ctx.save(); ctx.lineCap = 'round'; ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(255, 60, 0, ${alpha})`; ctx.lineWidth = 35; ctx.beginPath(); ctx.moveTo(fx.x1, fx.y1); ctx.lineTo(fx.x2, fx.y2); ctx.stroke(); ctx.strokeStyle = `rgba(255, 200, 0, ${alpha})`; ctx.lineWidth = 10; ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'black_slash') { ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = `rgba(20, 20, 20, ${alpha})`; ctx.lineWidth = 45; ctx.beginPath(); ctx.moveTo(fx.x1, fx.y1); ctx.lineTo(fx.x2, fx.y2); ctx.stroke(); ctx.strokeStyle = `rgba(188, 19, 254, ${alpha})`; ctx.lineWidth = 8; ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'cero_oscuras') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.rotate(fx.angle); ctx.fillStyle = `rgba(10, 255, 100, ${alpha})`; ctx.fillRect(0, -40, 2000, 80); ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`; ctx.fillRect(0, -20, 2000, 40); ctx.restore(); }
+                else if (fx.type === 'lanza_blast') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(0, 255, 100, ${alpha * 0.8})`; ctx.beginPath(); ctx.arc(0, 0, 500, 0, Math.PI*2); ctx.fill(); ctx.fillRect(-20, -1000, 40, 2000); ctx.fillRect(-1000, -20, 2000, 40); ctx.restore(); }
+                else if (fx.type === 'slime_blade') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.rotate(fx.angle); ctx.fillStyle = `rgba(100, 0, 255, ${alpha})`; ctx.fillRect(0, -15, 2000, 30); ctx.fillStyle = `rgba(200, 100, 255, ${alpha})`; ctx.fillRect(0, -5, 2000, 10); ctx.restore(); }
+                else if (fx.type === 'atomic_charge') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(200, 0, 255, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, fx.age * 2, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'atomic_blast') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(150, 0, 255, ${alpha})`; ctx.fillRect(-WORLD_SIZE, -WORLD_SIZE, WORLD_SIZE*3, WORLD_SIZE*3); ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, 800 + fx.age*10, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'normal_punch') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.rotate(fx.angle); ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`; ctx.fillRect(0, -20, 400, 40); ctx.restore(); }
+                else if (fx.type === 'serious_punch') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.rotate(fx.angle); ctx.fillStyle = `rgba(255, 0, 0, ${alpha})`; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(4000, 1000); ctx.lineTo(4000, -1000); ctx.fill(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(4000, 300); ctx.lineTo(4000, -300); ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'hirudora') { ctx.save(); ctx.translate(fx.x + Math.cos(fx.angle)*fx.age*40, fx.y + Math.sin(fx.angle)*fx.age*40); ctx.fillStyle = `rgba(200, 255, 255, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, 150, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = `rgba(0, 150, 255, ${alpha})`; ctx.lineWidth = 15; ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'night_guy_aura') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.fillStyle = `rgba(255, 0, 0, ${alpha * 0.5})`; ctx.beginPath(); ctx.arc(0, 0, 100 + Math.random()*50, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'night_guy_dash') { ctx.save(); ctx.lineCap = 'round'; ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`; ctx.lineWidth = 200; ctx.beginPath(); ctx.moveTo(fx.x1, fx.y1); ctx.lineTo(fx.x2, fx.y2); ctx.stroke(); ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`; ctx.lineWidth = 60; ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'onigiri') { ctx.save(); ctx.translate((fx.x1+fx.x2)/2, (fx.y1+fx.y2)/2); ctx.rotate(fx.angle); ctx.strokeStyle = `rgba(150, 50, 255, ${alpha})`; ctx.lineWidth = 15; ctx.beginPath(); ctx.moveTo(-500, -150); ctx.lineTo(500, 150); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-500, 150); ctx.lineTo(500, -150); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-500, 0); ctx.lineTo(500, 0); ctx.stroke(); ctx.restore(); }
+                else if (fx.type === 'psychokinesis') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(0, 0, 500, 0, Math.PI*2); ctx.stroke(); ctx.fillStyle = `rgba(150, 0, 255, ${alpha*0.3})`; ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'mob_charge') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.fillStyle = `rgba(150, 0, 255, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, fx.age*3, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+                else if (fx.type === 'mob_blast') { ctx.save(); ctx.translate(fx.x, fx.y); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(100, 0, 255, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, 1200, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = `rgba(0, 255, 255, ${alpha})`; ctx.beginPath(); ctx.arc(0, 0, 800, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+            });
+
+            zombies.forEach(z => z.draw());
+
+            const head = segments[0];
+
+            // Render Mobile Cursor Target (75px Above Creature Head)
+            if (isMobile) {
+                const curX = head.x;
+                const curY = head.y - 75;
+                ctx.save();
+                ctx.strokeStyle = '#00ffff';
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 10;
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(curX, curY, 8, 0, Math.PI * 2); ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(curX - 12, curY); ctx.lineTo(curX + 12, curY);
+                ctx.moveTo(curX, curY - 12); ctx.lineTo(curX, curY + 12);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            if (isUntargetable) { ctx.save(); ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'; ctx.beginPath(); ctx.arc(segments[0].x, segments[0].y, 45, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
+
+            ctx.strokeStyle = isUntargetable ? 'rgba(100, 200, 255, 0.8)' : 'rgba(230, 245, 255, 0.9)'; 
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            for (let i = 0; i < numSegments; i++) {
+                const seg = segments[i], rL = Math.max(4, 28 - i * 0.7), perp = seg.angle + Math.PI / 2;
+                ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(seg.x - Math.cos(perp) * rL, seg.y - Math.sin(perp) * rL); ctx.lineTo(seg.x + Math.cos(perp) * rL, seg.y + Math.sin(perp) * rL); ctx.stroke();
+                ctx.beginPath(); ctx.arc(seg.x, seg.y, 2.5, 0, Math.PI * 2); ctx.stroke();
+                if (i > 0) { ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(segments[i-1].x, segments[i-1].y); ctx.lineTo(seg.x, seg.y); ctx.stroke(); }
+            }
+
+            ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(head.x, head.y); ctx.lineTo(head.x + Math.cos(head.angle - 0.35) * 28, head.y + Math.sin(head.angle - 0.35) * 28); ctx.stroke(); ctx.beginPath(); ctx.moveTo(head.x, head.y); ctx.lineTo(head.x + Math.cos(head.angle + 0.35) * 28, head.y + Math.sin(head.angle + 0.35) * 28); ctx.stroke();
+
+            legs.forEach(leg => {
+                const mX = (leg.jointX + leg.currentX) / 2 + Math.cos(segments[leg.spineIndex].angle) * 15 * leg.side, mY = (leg.jointY + leg.currentY) / 2 + Math.sin(segments[leg.spineIndex].angle) * 15 * leg.side;
+                ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(leg.jointX, leg.jointY); ctx.lineTo(mX, mY); ctx.lineTo(leg.currentX, leg.currentY); ctx.stroke();
+                const aA = Math.atan2(leg.currentY - mY, leg.currentX - mX); ctx.lineWidth = 1.5; [-0.4, 0, 0.4].forEach(s => { ctx.beginPath(); ctx.moveTo(leg.currentX, leg.currentY); ctx.lineTo(leg.currentX + Math.cos(aA + s) * 12, leg.currentY + Math.sin(aA + s) * 12); ctx.stroke(); });
+            });
+
+            if (isAttacking) {
+                if (currentAttackName === "SoulSwing") {
+                    let cA = attackAngleTarget - Math.PI / 2, cAlpha = 1.0;
+                    if (attackTimer > 12) { const sP = (attackTimer - 12) / 5; cA = (attackAngleTarget - Math.PI / 2) + (Math.PI) * sP; cAlpha = Math.max(0, 1.0 - sP); }
+                    auraArmSegments[0] = {x: segments[1].x, y: segments[1].y}; auraArmSegments[1] = {x: segments[1].x + Math.cos(cA - 0.1) * 75, y: segments[1].y + Math.sin(cA - 0.1) * 75}; const hX = auraArmSegments[1].x + Math.cos(cA + 0.3) * 85, hY = auraArmSegments[1].y + Math.sin(cA + 0.3) * 85; auraArmSegments[2] = {x: hX, y: hY};
+                    if (attackTimer > 12 && lastHandPos) groundEffects.push({ type: 'slash', x1: lastHandPos.x, y1: lastHandPos.y, x2: hX, y2: hY, width: 7 + Math.random() * 5, age: 0, maxAge: 90 }); if (attackTimer > 12) lastHandPos = { x: hX, y: hY };
+                    ctx.save(); ctx.strokeStyle = `rgba(190, 80, 255, ${cAlpha * 0.95})`; ctx.fillStyle = `rgba(115, 20, 210, ${cAlpha * 0.85})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(segments[2].x, segments[2].y); ctx.lineTo(auraArmSegments[0].x, auraArmSegments[0].y); ctx.stroke(); ctx.lineWidth = 11; ctx.beginPath(); ctx.moveTo(auraArmSegments[0].x, auraArmSegments[0].y); ctx.lineTo(auraArmSegments[1].x, auraArmSegments[1].y); ctx.lineTo(auraArmSegments[2].x, auraArmSegments[2].y); ctx.stroke();
+                    const hdA = Math.atan2(auraArmSegments[2].y - auraArmSegments[1].y, auraArmSegments[2].x - auraArmSegments[1].x); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(hX, hY, 20, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                    [-0.6, -0.2, 0.2, 0.6].forEach(s => { const fA = hdA + s, jX = hX + Math.cos(fA)*24, jY = hY + Math.sin(fA)*24, tX = jX + Math.cos(fA+0.1)*18, tY = jY + Math.sin(fA+0.1)*18; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(hX, hY); ctx.lineTo(jX, jY); ctx.lineTo(tX, tY); ctx.stroke(); ctx.beginPath(); ctx.arc(tX, tY, 4, 0, Math.PI * 2); ctx.fill(); }); ctx.restore();
+                } else if (currentAttackName === "Kamehameha") {
+                    ctx.save(); ctx.globalCompositeOperation = 'lighter'; const hx = head.x, hy = head.y;
+                    if (attackTimer <= 30) { const p = attackTimer / 30; ctx.fillStyle = `rgba(100, 200, 255, ${p})`; ctx.beginPath(); ctx.arc(hx + Math.cos(attackAngleTarget)*40, hy + Math.sin(attackAngleTarget)*40, 10 + p*20, 0, Math.PI*2); ctx.fill(); }
+                    else if (attackTimer <= 70) { const bW = 150, eX = hx + Math.cos(attackAngleTarget) * 2500, eY = hy + Math.sin(attackAngleTarget) * 2500; ctx.strokeStyle = `rgba(0, 200, 255, 0.8)`; ctx.lineWidth = bW; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(eX, eY); ctx.stroke(); ctx.strokeStyle = `rgba(255, 255, 255, 1)`; ctx.lineWidth = bW * 0.5; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(eX, eY); ctx.stroke(); } ctx.restore();
+                }
+            }
+
+            textEffects.forEach(te => { ctx.save(); ctx.fillStyle = te.color || '#fff'; ctx.font = 'bold 26px "Segoe UI", Arial'; ctx.textAlign = 'center'; ctx.shadowColor = 'black'; ctx.shadowBlur = 6; ctx.fillText(te.text, te.x, te.y - te.age * 1.3); ctx.restore(); });
+            ctx.restore();
+        }
+
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
+        loop();
+    </script>
+</body>
+</html>
